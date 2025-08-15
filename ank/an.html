@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anksiyete</title>
+    <style>
+        :root {
+            --pulse-duration: 8s;
+            --vignette-size: 0px;
+            --screen-filter: none;
+            --core-opacity: 0;
+            --breather-tremble-intensity: 1.5px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100vh; /* Tam ekran yüksekliği */
+            overflow: hidden;
+            background-color: #080808;
+            color: #ccc;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            transition: background-color 5s ease-in-out, color 5s ease-in-out, filter 5s ease-in-out;
+            filter: var(--screen-filter);
+        }
+
+        /* Vinyet (Kenarların Kararması) */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            box-shadow: inset 0 0 var(--vignette-size) var(--vignette-size) #000;
+            pointer-events: none;
+            z-index: 100;
+            transition: box-shadow 4s ease-out;
+        }
+        
+        /* Nefes efekti */
+        body::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle at center, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0) 70%);
+            opacity: 0;
+            animation: breathing-bg 4s infinite ease-in-out;
+            animation-play-state: paused; /* DÜZELTME: Başlangıçta durduruldu */
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* DÜZELTME: Animasyonu başlatacak sınıf */
+        body.experience-started::after {
+            animation-play-state: running;
+        }
+
+
+        .shaking {
+            animation: shake 0.3s infinite;
+        }
+        .shake-hard {
+            animation: shake-hard 0.1s infinite;
+        }
+
+        #intro {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.2rem;
+            color: #777;
+            cursor: pointer;
+            z-index: 200;
+            transition: opacity 1s, color 1s;
+        }
+        #intro:hover {
+            color: #aaa;
+        }
+
+        #anxiety-core {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 50vmax;
+            height: 50vmax;
+            background: radial-gradient(circle, rgba(50, 50, 55, 0.4) 0%, rgba(0,0,0,0) 70%);
+            border-radius: 50%;
+            opacity: var(--core-opacity);
+            animation: pulse var(--pulse-duration) infinite ease-in-out alternate,
+                       jitter 10s infinite linear;
+            transition: opacity 5s;
+        }
+        
+        #whispers-container, #hate-queries-container {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .whisper {
+            position: absolute;
+            color: #444;
+            font-size: 1rem;
+            opacity: 0;
+            filter: blur(1px);
+            transition: opacity 3s;
+        }
+
+        .whisper.visible { opacity: 1; }
+
+        .hate-query {
+            position: absolute;
+            color: #888;
+            font-size: clamp(1rem, 2vw, 1.5rem);
+            white-space: nowrap;
+            opacity: 0;
+            animation: hate-fade 8s linear forwards;
+        }
+
+        #breather {
+            position: absolute;
+            color: #555;
+            font-size: 1rem;
+            opacity: 0;
+            z-index: 201;
+            transition: opacity 2s, color 0.3s, border-color 0.3s, transform 0.3s;
+            border: 1px solid #444;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        #breather:hover {
+            color: #999;
+            border-color: #777;
+        }
+        #breather.trembling {
+            animation: tremble 0.1s infinite;
+        }
+
+        /* YENİ EKLENEN DENEYİM ELEMENTLERİ */
+        .hidden {
+            display: none !important;
+        }
+
+        #typing-challenge {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 150;
+            opacity: 0;
+            transition: opacity 2s ease-in;
+        }
+
+        #word-display {
+            font-size: clamp(2rem, 8vmin, 5rem);
+            color: #888;
+            letter-spacing: 0.5rem;
+            margin-bottom: 20px;
+            transition: color 0.3s, letter-spacing 0.5s;
+        }
+        #word-display.distorted {
+            color: #533;
+            text-shadow: 0 0 5px #f00;
+            letter-spacing: 1rem;
+        }
+
+        #timer-bar-container {
+            width: 300px;
+            max-width: 80vw;
+            height: 4px;
+            background-color: #222;
+            margin-bottom: 20px;
+        }
+
+        #timer-bar {
+            width: 100%;
+            height: 100%;
+            background-color: #888;
+            transition: width 0.1s linear, background-color 1s;
+        }
+        #timer-bar.danger {
+            background-color: #a33;
+        }
+
+        #word-input {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid #555;
+            color: #ccc;
+            font-size: clamp(1.5rem, 6vmin, 3rem);
+            text-align: center;
+            width: 300px;
+            max-width: 80vw;
+            padding: 5px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        #word-input:focus {
+            border-color: #888;
+        }
+
+        #feedback {
+            margin-top: 15px;
+            color: #a33;
+            font-weight: bold;
+            height: 1.2em;
+        }
+        
+        #crack-container {
+            position: absolute;
+            top:0; left:0; width:100%; height:100%;
+            pointer-events:none;
+            z-index: 160;
+        }
+
+        .crack {
+            position: absolute;
+            background: #444;
+            animation: crack-appear 0.2s ease-out forwards;
+        }
+        .crack::before, .crack::after {
+            content: '';
+            position: absolute;
+            background: inherit;
+        }
+
+        #noise-container {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 155;
+        }
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: white;
+            border-radius: 50%;
+            animation: particle-fade 0.2s linear forwards;
+        }
+
+        #final-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ccc;
+            font-size: 1.5rem;
+            opacity: 0;
+            transition: opacity 3s;
+            z-index: 300;
+        }
+
+        /* ANİMASYONLAR */
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(0.95); }
+            100% { transform: translate(-50%, -50%) scale(1.05); }
+        }
+        @keyframes breathing-bg {
+            0% { transform: scale(0.9); opacity: 0; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(0.9); opacity: 0; }
+        }
+        @keyframes jitter {
+            0%, 100% { transform: translate(-50%, -50%); }
+            25% { transform: translate(-50.2%, -49.8%); }
+            50% { transform: translate(-49.9%, -50.1%); }
+            75% { transform: translate(-50.1%, -49.9%); }
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+            20%, 40%, 60%, 80% { transform: translateX(2px); }
+        }
+        @keyframes shake-hard {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(5px, -3px); }
+            50% { transform: translate(-4px, 4px); }
+            75% { transform: translate(3px, -5px); }
+        }
+        @keyframes crack-appear {
+            from { width: 0; height: 0; }
+            to { width: var(--w); height: var(--h); }
+        }
+        @keyframes particle-fade {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0; transform: scale(0); }
+        }
+        @keyframes hate-fade {
+            0% { opacity: 0; transform: translateX(0); }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { opacity: 0; transform: translateX(var(--tx, 30px)); }
+        }
+        @keyframes tremble {
+            0% { transform: translate(var(--breather-tremble-intensity), var(--breather-tremble-intensity)) translateX(-50%); }
+            50% { transform: translate(calc(var(--breather-tremble-intensity) * -1), calc(var(--breather-tremble-intensity) * -1)) translateX(-50%); }
+            100% { transform: translate(var(--breather-tremble-intensity), var(--breather-tremble-intensity)) translateX(-50%); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="intro">Tıkla.</div>
+    <div id="anxiety-core"></div>
+    <div id="whispers-container"></div>
+    <div id="hate-queries-container"></div>
+    <div id="crack-container"></div>
+    <div id="noise-container"></div>
+
+    <div id="typing-challenge" class="hidden">
+        <div id="word-display"></div>
+        <div id="timer-bar-container">
+            <div id="timer-bar"></div>
+        </div>
+        <input type="text" id="word-input" maxlength="20" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <div id="feedback" aria-live="polite"></div>
+    </div>
+    
+    <div id="breather" class="hidden">Nefes al.</div>
+    <div id="final-message"></div>
+
+    <script>
+        const intro = document.getElementById('intro');
+        const core = document.getElementById('anxiety-core');
+        const whispersContainer = document.getElementById('whispers-container');
+        const breather = document.getElementById('breather');
+        const body = document.body;
+        const root = document.documentElement;
+
+        // Yeni Elementler
+        const typingChallenge = document.getElementById('typing-challenge');
+        const wordDisplay = document.getElementById('word-display');
+        const timerBar = document.getElementById('timer-bar');
+        const wordInput = document.getElementById('word-input');
+        const feedback = document.getElementById('feedback');
+        const crackContainer = document.getElementById('crack-container');
+        const noiseContainer = document.getElementById('noise-container');
+        const hateQueriesContainer = document.getElementById('hate-queries-container');
+        const finalMessage = document.getElementById('final-message');
+
+        // Durum Değişkenleri
+        let experienceActive = false;
+        let intervals = {
+            whisper: null,
+            corePulse: null,
+            timer: null,
+            hateQuery: null,
+            noise: null,
+        };
+        let hataSayaci = 0;
+        let kelimeIndex = 0;
+        let mevcutSure = 5000; // 5 saniye
+        const kelimeListesi = ["umut", "sakin", "nefes", "devam", "son"];
+        
+        const whispers = ["Ya...?", "Yanlış yaparsan?", "Rezil olacaksın.", "Sana bakıyorlar.", "Güldüler mi?", "Kesin kötü bir şey olacak.", "Unuttun mu?", "Yeterli değil.", "Neden böyle söyledin?", "Tuhaf görünüyor.", "Beceremeyeceksin.", "Herkes farkında.", "Kalbim..."];
+        const hateQueries = ["Neden deniyorsun ki?", "Zaten başaramayacaksın.", "Herkes senden daha iyi.", "Yalnızsın.", "Kimse anlamıyor.", "Bırak artık.", "Zayıfsın."];
+
+        // --- ANA FONKSİYONLAR ---
+
+        function startExperience() {
+            if (experienceActive) return;
+            experienceActive = true;
+
+            intro.style.opacity = '0';
+            setTimeout(() => intro.style.display = 'none', 1000);
+
+            // Faz 0 & 1: Başlangıç ve nefes
+            body.classList.add('experience-started'); // DÜZELTME: Hatalı satırın yerine bu geldi.
+            root.style.setProperty('--core-opacity', '1');
+            root.style.setProperty('--pulse-duration', '4s');
+            intervals.corePulse = setInterval(updateCorePulse, 1000);
+
+            // Faz 2: Yazı alanı
+            setTimeout(() => {
+                typingChallenge.classList.remove('hidden');
+                typingChallenge.style.opacity = '1';
+                wordInput.focus();
+                sonrakiKelime();
+            }, 2000);
+        }
+
+        function sonrakiKelime() {
+            wordInput.value = '';
+            feedback.innerText = '';
+            wordDisplay.classList.remove('distorted');
+            wordInput.disabled = false;
+            
+            if (kelimeIndex >= kelimeListesi.length) {
+                zirveyeUlas();
+                return;
+            }
+
+            wordDisplay.innerText = kelimeListesi[kelimeIndex];
+            wordInput.focus();
+            startTimer();
+        }
+
+        function startTimer() {
+            clearInterval(intervals.timer);
+            let kalanSure = mevcutSure;
+            timerBar.classList.remove('danger');
+            timerBar.style.transition = 'none'; // Anlık sıfırlama için
+            timerBar.style.width = '100%';
+            
+            requestAnimationFrame(() => {
+                timerBar.style.transition = `width ${mevcutSure / 1000}s linear, background-color 1s`;
+                timerBar.style.width = '0%';
+            });
+
+            intervals.timer = setTimeout(() => {
+                handleError('süre bitti');
+            }, mevcutSure);
+        }
+
+        function handleError(reason) {
+            hataSayaci++;
+            clearInterval(intervals.timer);
+            feedback.innerText = 'Yanlış.';
+            body.classList.add('shaking');
+            
+            setTimeout(() => body.classList.remove('shaking'), 300);
+
+            // Faz 4: Görsel bozulmalar
+            root.style.setProperty('--vignette-size', `${Math.min(250, 50 + hataSayaci * 40)}px`);
+            createWhisper(); createWhisper(); // Her hatada fısıltı artar
+
+            mevcutSure = Math.max(1000, mevcutSure * 0.8); // Süre daha da kısalır
+            
+            updateCorePulse();
+
+            // Faz 5: Çatırdamalar
+            if (hataSayaci >= 3 && crackContainer.childElementCount < 5) {
+                createCrack();
+                root.style.setProperty('--screen-filter', `grayscale(${hataSayaci * 15}%) contrast(${100 + hataSayaci * 10}%)`);
+                if (!intervals.noise) {
+                    intervals.noise = setInterval(createNoiseParticle, 100);
+                }
+            }
+
+            // Faz 6: Nefret sorguları
+            if (hataSayaci >= 4 && !intervals.hateQuery) {
+                intervals.hateQuery = setInterval(createHateQuery, 2500);
+            }
+
+            wordDisplay.classList.add('distorted');
+            wordInput.disabled = true;
+            
+            setTimeout(() => sonrakiKelime(), 1500);
+        }
+
+        function zirveyeUlas() {
+            // Faz 7: Zirve
+            wordInput.disabled = true;
+            typingChallenge.classList.add('shake-hard');
+            clearInterval(intervals.timer);
+            clearInterval(intervals.whisper);
+            
+            intervals.whisper = setInterval(createWhisper, 200);
+            root.style.setProperty('--pulse-duration', '0.3s');
+            
+            // Klavye tuşlarını rastgele değiştirme simülasyonu
+            let lastMessage = document.createElement('div');
+            lastMessage.innerText = "... KONTROL SENDE DEĞİL ...";
+            lastMessage.style.color = '#a33';
+            feedback.innerHTML = '';
+            feedback.appendChild(lastMessage);
+
+            // Faz 8: Her şey silinir
+            setTimeout(crashAndRebirth, 4000);
+        }
+
+        function crashAndRebirth() {
+            // Tüm intervalleri temizle
+            Object.values(intervals).forEach(clearInterval);
+
+            body.style.transition = 'opacity 1s';
+            body.style.opacity = '0';
+
+            setTimeout(() => {
+                document.body.innerHTML = ''; // Her şeyi sil
+                
+                // Faz 9: Sessizlik ve yeniden doğuş
+                const newBreather = document.createElement('div');
+                newBreather.id = 'breather';
+                newBreather.innerText = 'Nefes al.';
+                newBreather.classList.add('trembling');
+                
+                // Rastgele konum
+                newBreather.style.top = `${30 + Math.random() * 40}%`;
+                newBreather.style.left = `${30 + Math.random() * 40}%`;
+                
+                const newFinalMessage = document.createElement('div');
+                newFinalMessage.id = 'final-message';
+                newFinalMessage.innerText = 'Sen hâlâ buradasın.';
+                
+                document.body.appendChild(newFinalMessage);
+                document.body.appendChild(newBreather);
+                body.style.backgroundColor = '#080808';
+                
+                requestAnimationFrame(() => {
+                    body.style.opacity = '1';
+                    newBreather.style.opacity = '0.5';
+                    newFinalMessage.style.opacity = '1';
+                });
+
+                let breatherClicks = 0;
+                newBreather.addEventListener('click', () => {
+                    breatherClicks++;
+                    const scale = 1 - (breatherClicks * 0.1);
+                    const opacity = 0.5 + (breatherClicks * 0.1);
+                    root.style.setProperty('--breather-tremble-intensity', `${Math.max(0, 1.5 - breatherClicks * 0.4)}px`);
+
+                    newBreather.style.transform = `translateX(-50%) scale(${scale})`;
+                    newBreather.style.opacity = `${opacity}`;
+
+                    if (breatherClicks >= 5) {
+                        newBreather.classList.remove('trembling');
+                        finalCalm(newBreather, newFinalMessage);
+                    }
+                });
+
+            }, 1000);
+        }
+
+        function finalCalm(breatherEl, messageEl) {
+             // Faz 10: Son
+             breatherEl.style.pointerEvents = 'none';
+             body.style.transition = 'background-color 5s ease-in, color 5s ease-in';
+             body.style.backgroundColor = '#f0f0f0';
+             messageEl.style.color = '#333';
+             breatherEl.style.color = '#888';
+             breatherEl.style.borderColor = '#aaa';
+        }
+
+
+        // --- YARDIMCI GÖRSEL FONKSİYONLAR ---
+
+        function updateCorePulse() {
+            const newInterval = Math.max(100, 1000 - hataSayaci * 150);
+            core.style.transition = 'opacity 0.2s linear';
+            
+            // Kalp atışı gibi yanıp sönme
+            let isVisible = true;
+            clearInterval(intervals.corePulse);
+            intervals.corePulse = setInterval(() => {
+                root.style.setProperty('--core-opacity', isVisible ? '1' : '0.1');
+                isVisible = !isVisible;
+            }, newInterval);
+        }
+        
+        wordInput.addEventListener('input', () => {
+            const mevcutKelime = kelimeListesi[kelimeIndex];
+            const girilenYazi = wordInput.value.toLowerCase();
+
+            // Faz 4 - Hileli kelime
+            if (kelimeIndex === 4 && girilenYazi.length === mevcutKelime.length - 1 && mevcutKelime.startsWith(girilenYazi)) {
+                 wordInput.addEventListener('keydown', sonHarfHilesi, { once: true });
+            }
+
+            if (girilenYazi === mevcutKelime) {
+                clearInterval(intervals.timer);
+                kelimeIndex++;
+                mevcutSure *= 0.8; // Her doğru kelimede süre %20 azalır
+                setTimeout(() => sonrakiKelime(), 300);
+            } else if (!mevcutKelime.startsWith(girilenYazi)) {
+                handleError('yanlış harf');
+            }
+        });
+        
+        function sonHarfHilesi(e) {
+            e.preventDefault();
+            wordInput.value += String.fromCharCode(e.keyCode + 1).toLowerCase(); // Yanlış harfi bas
+            handleError('hile');
+        }
+
+        function createWhisper() {
+            const whisperEl = document.createElement('div');
+            whisperEl.classList.add('whisper');
+            whisperEl.innerText = whispers[Math.floor(Math.random() * whispers.length)];
+            whisperEl.style.top = `${Math.random() * 90}%`;
+            whisperEl.style.left = `${Math.random() * 90}%`;
+            whispersContainer.appendChild(whisperEl);
+            setTimeout(() => whisperEl.classList.add('visible'), 100);
+            setTimeout(() => {
+                whisperEl.style.opacity = '0';
+                setTimeout(() => whisperEl.remove(), 3000);
+            }, 8000 + Math.random() * 5000);
+        }
+
+        function createHateQuery() {
+            const queryEl = document.createElement('div');
+            queryEl.classList.add('hate-query');
+            queryEl.innerText = hateQueries[Math.floor(Math.random() * hateQueries.length)];
+            queryEl.style.top = `${10 + Math.random() * 80}%`;
+            
+            if (Math.random() > 0.5) {
+                queryEl.style.left = '5%';
+                queryEl.style.setProperty('--tx', '30px');
+            } else {
+                queryEl.style.right = '5%';
+                queryEl.style.setProperty('--tx', '-30px');
+            }
+            hateQueriesContainer.appendChild(queryEl);
+            setTimeout(() => queryEl.remove(), 8000);
+        }
+
+        function createCrack() {
+            const crackEl = document.createElement('div');
+            crackEl.classList.add('crack');
+            const length = 100 + Math.random() * 200;
+            const isVertical = Math.random() > 0.5;
+            crackEl.style.setProperty('--w', isVertical ? '2px' : `${length}px`);
+            crackEl.style.setProperty('--h', isVertical ? `${length}px` : '2px');
+            crackEl.style.top = `${Math.random() * 80}%`;
+            crackEl.style.left = `${Math.random() * 80}%`;
+            crackEl.style.transform = `rotate(${Math.random() * 360}deg)`;
+            crackContainer.appendChild(crackEl);
+        }
+
+        function createNoiseParticle() {
+            if (document.querySelectorAll('.particle').length > 50) return;
+            const p = document.createElement('span');
+            p.classList.add('particle');
+            p.style.top = `${Math.random() * 100}%`;
+            p.style.left = `${Math.random() * 100}%`;
+            noiseContainer.appendChild(p);
+            setTimeout(() => p.remove(), 200);
+        }
+
+        intro.addEventListener('click', startExperience);
+        // 'breather' butonu dinamik olarak oluşturulduğu için event listener'ı orada ekleniyor.
+    </script>
+</body>
+</html>

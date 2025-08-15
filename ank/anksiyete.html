@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anksiyete</title>
+    <style>
+        :root {
+            --pulse-duration: 8s;
+            --vignette-size: 0px;
+            --screen-filter: none;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #080808; /* Tam siyahtan bir tık açık */
+            color: #ccc;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            transition: filter 5s ease-in-out;
+            filter: var(--screen-filter);
+        }
+
+        body::before { /* Vinyet (Kenarların Kararması) */
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            box-shadow: inset 0 0 var(--vignette-size) var(--vignette-size) #000;
+            pointer-events: none;
+            z-index: 100;
+            transition: box-shadow 4s ease-out;
+        }
+
+        body.shaking {
+            animation: shake 0.3s infinite;
+        }
+
+        #intro {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.2rem;
+            color: #777;
+            cursor: pointer;
+            z-index: 200;
+            transition: opacity 1s, color 1s;
+        }
+        
+        #intro:hover {
+            color: #aaa;
+        }
+
+        #anxiety-core {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 50vmax;
+            height: 50vmax;
+            /* DEĞİŞİKLİK: Görünürlük artırıldı */
+            background: radial-gradient(circle, rgba(50, 50, 55, 0.4) 0%, rgba(0,0,0,0) 70%);
+            border-radius: 50%;
+            opacity: 0;
+            animation: pulse var(--pulse-duration) infinite ease-in-out alternate,
+                       jitter 10s infinite linear;
+            transition: opacity 5s;
+        }
+        
+        #whispers-container {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .whisper {
+            position: absolute;
+            /* DEĞİŞİKLİK: Fısıltılar daha görünür */
+            color: #444;
+            font-size: 1rem;
+            opacity: 0;
+            filter: blur(1px);
+            transition: opacity 3s;
+            pointer-events: none;
+        }
+
+        .whisper.visible {
+            opacity: 1;
+        }
+
+        #breather {
+            position: absolute;
+            bottom: 5%;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #555;
+            font-size: 1rem;
+            opacity: 0;
+            z-index: 201;
+            transition: opacity 2s, color 0.3s, border-color 0.3s;
+            border: 1px solid #444;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
+        #breather:hover {
+            color: #999;
+            border-color: #777;
+        }
+
+        /* ANİMASYONLAR */
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(0.95); }
+            100% { transform: translate(-50%, -50%) scale(1.05); }
+        }
+
+        @keyframes jitter {
+            0%, 100% { transform: translate(-50%, -50%); }
+            25% { transform: translate(-50.2%, -49.8%); }
+            50% { transform: translate(-49.9%, -50.1%); }
+            75% { transform: translate(-50.1%, -49.9%); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+            20%, 40%, 60%, 80% { transform: translateX(2px); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="intro">Tıkla.</div>
+
+    <div id="anxiety-core"></div>
+
+    <div id="whispers-container"></div>
+    
+    <div id="breather">Nefes al.</div>
+
+    <script>
+        const intro = document.getElementById('intro');
+        const core = document.getElementById('anxiety-core');
+        const whispersContainer = document.getElementById('whispers-container');
+        const breather = document.getElementById('breather');
+        const body = document.body;
+        const root = document.documentElement;
+
+        let whisperInterval;
+        let experienceActive = false;
+
+        const whispers = [
+            "Ya...?", "Yanlış yaparsan?", "Rezil olacaksın.", "Sana bakıyorlar.", 
+            "Güldüler mi?", "Kesin kötü bir şey olacak.", "Unuttun mu?", 
+            "Yeterli değil.", "Neden böyle söyledin?", "Tuhaf görünüyor.", 
+            "Beceremeyeceksin.", "Herkes farkında.", "Kalbim..."
+        ];
+
+        function createWhisper() {
+            const whisperEl = document.createElement('div');
+            whisperEl.classList.add('whisper');
+            whisperEl.innerText = whispers[Math.floor(Math.random() * whispers.length)];
+            
+            whisperEl.style.top = `${Math.random() * 90}%`;
+            whisperEl.style.left = `${Math.random() * 90}%`;
+            whisperEl.style.fontSize = `${0.8 + Math.random() * 0.5}rem`;
+            whisperEl.style.transform = `rotate(${Math.random() * 20 - 10}deg)`;
+
+            whispersContainer.appendChild(whisperEl);
+
+            setTimeout(() => {
+                whisperEl.classList.add('visible');
+            }, 100);
+
+            setTimeout(() => {
+                whisperEl.style.opacity = '0';
+                setTimeout(() => whisperEl.remove(), 3000);
+            }, 8000 + Math.random() * 5000);
+        }
+
+        function startExperience() {
+            if (experienceActive) return;
+            experienceActive = true;
+
+            intro.style.opacity = '0';
+            setTimeout(() => intro.style.display = 'none', 1000);
+
+            setTimeout(() => {
+                core.style.opacity = '1';
+            }, 1000);
+
+            setTimeout(() => {
+                root.style.setProperty('--pulse-duration', '4s');
+                createWhisper();
+            }, 5000);
+            
+            setTimeout(() => {
+                root.style.setProperty('--vignette-size', '100px');
+                whisperInterval = setInterval(createWhisper, 3000);
+            }, 15000);
+
+            setTimeout(() => {
+                root.style.setProperty('--pulse-duration', '1s');
+                root.style.setProperty('--vignette-size', '250px');
+                root.style.setProperty('--screen-filter', 'grayscale(80%) contrast(120%)');
+                clearInterval(whisperInterval);
+                whisperInterval = setInterval(createWhisper, 800);
+            }, 30000);
+
+            setTimeout(() => {
+                body.classList.add('shaking');
+                root.style.setProperty('--pulse-duration', '0.5s');
+            }, 45000);
+
+            setTimeout(() => {
+                breather.style.opacity = '1';
+            }, 60000);
+        }
+
+        function endExperience() {
+            clearInterval(whisperInterval);
+            experienceActive = false;
+            
+            body.classList.remove('shaking');
+            breather.style.opacity = '0';
+            root.style.setProperty('--pulse-duration', '12s');
+            root.style.setProperty('--vignette-size', '0px');
+            root.style.setProperty('--screen-filter', 'none');
+
+            document.querySelectorAll('.whisper').forEach(w => {
+                w.style.opacity = '0';
+                setTimeout(() => w.remove(), 2000);
+            });
+
+            setTimeout(() => {
+                core.style.opacity = '0.3';
+            }, 2000);
+
+            // Deneyimin yeniden başlatılabilmesi için intro'yu geri getirebiliriz (isteğe bağlı)
+            // setTimeout(() => {
+            //     intro.style.display = 'block';
+            //     intro.style.opacity = '1';
+            // }, 8000);
+        }
+
+        intro.addEventListener('click', startExperience);
+        breather.addEventListener('click', endExperience);
+
+    </script>
+</body>
+</html>

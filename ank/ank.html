@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anksiyete</title>
+    <style>
+        :root {
+            --pulse-duration: 8s;
+            --vignette-size: 0px;
+            --screen-filter: none;
+            --heartbeat-color: rgba(60, 60, 65, 0.4);
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden;
+            background-color: #080808;
+            color: #ccc;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            transition: filter 5s ease-in-out, background-color 4s ease;
+            filter: var(--screen-filter);
+        }
+
+        body::before { /* Vinyet */
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            box-shadow: inset 0 0 var(--vignette-size) var(--vignette-size) #000;
+            pointer-events: none; z-index: 100;
+            transition: box-shadow 4s ease-out;
+        }
+
+        #intro {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.2rem; color: #777; cursor: pointer;
+            z-index: 300; transition: opacity 1s, color 1s;
+        }
+        #intro:hover { color: #aaa; }
+
+        #anxiety-core {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60vmax; height: 60vmax;
+            background: radial-gradient(circle, var(--heartbeat-color) 0%, rgba(0,0,0,0) 70%);
+            border-radius: 50%; opacity: 0;
+            animation: pulse var(--pulse-duration) infinite ease-in-out alternate;
+            transition: opacity 3s, transform 1s;
+        }
+
+        #cracks-container {
+            position: absolute; top: 50%; left: 50%;
+            width: 100%; height: 100%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 150;
+        }
+        .crack {
+            stroke: #555; stroke-width: 1px; fill: none;
+            stroke-dasharray: 1000; stroke-dashoffset: 1000;
+            animation: draw-crack 2s forwards;
+        }
+
+        #whispers-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 200;
+        }
+        .whisper {
+            position: absolute; color: #666; font-size: 1.2rem; opacity: 0;
+            filter: blur(1px); transition: opacity 1s, transform 0.5s;
+            padding: 5px; background: rgba(8, 8, 8, 0.7);
+        }
+
+        #typing-challenge {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            display: none; flex-direction: column; align-items: center;
+            z-index: 210;
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+        }
+        #target-word {
+            font-size: 2.5rem; color: #888; margin-bottom: 20px;
+            letter-spacing: 2px; transition: color 0.5s;
+        }
+        #typing-input {
+            background: transparent; border: 1px solid #444; color: #ccc;
+            font-size: 2rem; text-align: center; width: 300px;
+            outline: none; transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        #typing-input:focus { border-color: #777; }
+        #typing-input.error { border-color: #a00; box-shadow: 0 0 15px #a00; animation: shake-input 0.3s; }
+        #timer-bar {
+            width: 300px; height: 3px; background-color: #555;
+            margin-top: 10px; transform-origin: left;
+            transition: transform 0.1s linear, background-color 0.5s;
+        }
+        
+        #breather {
+            position: absolute; color: #555; font-size: 1rem; opacity: 0;
+            z-index: 250; transition: all 0.3s;
+            border: 1px solid #444; padding: 10px 20px; cursor: pointer;
+        }
+        #breather:hover { color: #999; border-color: #777; }
+        #breather.shaking-light { animation: shake-light 0.4s infinite; }
+        #breather.shaking-medium { animation: shake-medium 0.2s infinite; }
+        #breather.shaking-hard { animation: shake-hard 0.15s infinite; }
+
+        #static-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAMAAAAp4XiDAAAAUVBMVEWFhYWDg4N3d3dtbW17e3t1dXWBgYGHh4d5eXlzc3OLi4ubm5uVlZWPj4+NjY19fX2JiYl/f39ra2uRkZGZmZlpaWmXl5dvb29xcXGTk5NnZ2c8TV1mAAAAG3RSTlNAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEAvEOwtAAAFVklEQVR4XpWWB67c2BUFb3g557T/hRo9/WUMZHlgr4Bg8Z4qQgQJlHI4A8SzFVrapvmTF9O7dmYRFZ60YiBhJRCgh1FYhiLAmdvX0CzTOpNE77ME0Zty/nWWzchDtiqrmQDeuv3powQ5ta2eN0FY0InkqDD73lT9c9lEzwUNqgFHs9VQce3TVClFCQrSTfOiYkVJQBmpbq2L6iZavPnAPcoU0dSw0SUTtUlazgaSuxunFSNFKnkyUoVzgrF4mdsuLGgtYIWKsuQ9ep/ZdJ5inE+A4troNBOVRBFksSIH4xLBGCrbSUI7iquCoGjp7UIYVSwsbAhGUIrJKrGgnSC1PhD0SQYCIcH3DJGYUoQUEqwsSRAZRCMLGoEIFEISO8iaYpNBbDGasYUMYOUOFQg2OOmlhCoST0FH fatoresAJCpSpSoS4YBOCCuC7IOIbCsZwSZQ4QeHyAZwX0SSgm5e3D3IqARXAZwEeeMAKRk4MgJjA8wAxK1dIm8lo2CLwJCNiXchcIl9Yw3/+sc5Ews1DKggFS8H4V5CL8U9MJGAcItsZoNotAScgGcNZEHlc/QC9S5S0HFSDBqCUIdwJVouN4aK21eL2dADsNMNoKkRjG/wr1l++hqPaGo9rwP9JE2GgGicTbe7dZ0vvlo/BEAEoZA2V2NNBFGAutTrEn5rWtqCVia/K3eUg0yc2LbrGfwMRNyVVLdSBeHmsmnA0F6kUJpQjFNdDbhS8cwxnVO9rd4+xgAHD18PqVEZzBEAQBERKCPN1RYQsGZcSsEc83YnkdCpHbeLMLKinzBbpnUS2wa0t3d2g7M5+S0jNGiZEMR2zpPJz0EWShsyfgAOFNY6j2SGWBrrEVN216qZwnE28Lp0w40wSHF5TCsSCIEBABoSCKhi0+XgBNwsSFfMvoAXK0YLlAnPNgM1f2YAAU9h1N9E+g6I1R5dxgGJZU2M/wdAn0U9MkpCFoEJoA9gzMAJA0A1gPOUbHk2RZNPAoYLxEY7AGRpvKZQV1RAtLvsEBYdUZsJb6MQVnYM22PAeKrhK5ExwIomRJigGkDxiK9DDETBOV0sVw140gAD4BeCLwAnBcMfn9ALFBi/JEBgH2M9GGD2AF4Bv0b4BgwTgMAKtwV6Hu0rA9ضمAZg2e0rA4f3gNRgeeoAlB0+bYyAZg/BWNhWMBcpQIOBvggvH2nkb20fA4T+ZbIYgKkBvQ4YA5hK+NbY4MBbDE8YYAKo5lRRvL3W0JzkhgBghsP+CwI/bMBD5h9SgB8AABM9Qx4u9hMARCJnK1DNUwsFZuxnAFCFDW2I6gE6AANb6JUBHgn2d4X9AnAAN6GIMsg5AL0AnBEQAfC9AFI2bEciZNixCzzPA0BwZ4CdsAlBN9gM1N7RhA2HwgEkzEhBBwS+QHQIeCcsGi4sIAAU9lSAAXMAp/18SgD0AABNlGfAZ2S6WcCO6wsAYssRIAKwWd1AYRtjwAAA7gAnYRMwA8Dp5LR0AUA4V4GGkGDgU08MhQoIOs5+Y9dUHBCfMhYAAU+kQAwAAK+YCAAB1pIMQCuq2AD46NDbA4JdFUA0M5Q1d5SHty1xIYAkgAanwIBAAAAQA8gIABlnwwA4BBY2AJIléK4UAAAAASUVORK5CYII=');
+            opacity: 0;
+            pointer-events: none;
+            z-index: 500;
+            animation: static-flicker 0.1s infinite;
+            transition: opacity 2s;
+        }
+
+        #final-message {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5rem; color: #999;
+            opacity: 0; transition: opacity 4s ease-in-out;
+            text-align: center; z-index: 600;
+        }
+
+        /* ANİMASYONLAR */
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(0.98); }
+            100% { transform: translate(-50%, -50%) scale(1.02); }
+        }
+        @keyframes draw-crack { to { stroke-dashoffset: 0; } }
+        @keyframes shake-input {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-6px); }
+            75% { transform: translateX(6px); }
+        }
+        @keyframes shake-light {
+             0%, 100% { transform: translate(1px, -1px) rotate(-0.5deg); }
+            50% { transform: translate(-1px, 1px) rotate(0.5deg); }
+        }
+        @keyframes shake-medium {
+            0%, 100% { transform: translate(3px, -2px) rotate(1deg); }
+            50% { transform: translate(-3px, 2px) rotate(-1deg); }
+        }
+        @keyframes shake-hard {
+            0%, 100% { transform: translate(5px, -4px) rotate(-1.5deg); }
+            25% { transform: translate(-4px, 5px) rotate(1.5deg); }
+            50% { transform: translate(5px, 3px) rotate(-1.5deg); }
+            75% { transform: translate(-3px, -5px) rotate(1.5deg); }
+        }
+        @keyframes static-flicker {
+            0%, 100% { opacity: 0.05; }
+            50% { opacity: 0.1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="intro">Tıkla.</div>
+    <div id="anxiety-core"><svg id="cracks-container" viewBox="0 0 100 100" preserveAspectRatio="none"></svg></div>
+    <div id="whispers-container"></div>
+    <div id="typing-challenge">
+        <p id="target-word"></p>
+        <input type="text" id="typing-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <div id="timer-bar"></div>
+    </div>
+    <div id="breather">Nefes al.</div>
+    <div id="static-overlay"></div>
+    <div id="final-message"></div>
+
+    <script>
+        // --- ELEMENT REFERANSLARI ---
+        const introEl = document.getElementById('intro'), coreEl = document.getElementById('anxiety-core'),
+              whispersContainerEl = document.getElementById('whispers-container'), breatherEl = document.getElementById('breather'),
+              typingChallengeEl = document.getElementById('typing-challenge'), targetWordEl = document.getElementById('target-word'),
+              typingInputEl = document.getElementById('typing-input'), timerBarEl = document.getElementById('timer-bar'),
+              staticOverlayEl = document.getElementById('static-overlay'), cracksContainerEl = document.getElementById('cracks-container'),
+              finalMessageEl = document.getElementById('final-message'), body = document.body, root = document.documentElement;
+
+        // --- DURUM YÖNETİMİ ---
+        let state = {
+            active: false, stage: 0, whisperInterval: null, timerInterval: null, peakChaosInterval: null,
+            wordIndex: 0, initialTime: 4000, currentTime: 4000, timeRate: 1, errorCount: 0, shakeLevel: 0
+        };
+
+        const words = ["odaklan", "basit", "sakin", "doğru", "hatasız"];
+        const whispers = {
+            mild: ["Ya...?", "Hadi...", "Görüyorlar mı?", "Sessizlik...", "Biraz daha hızlı."],
+            harsh: ["Yanlış yapacaksın.", "Rezil oluyorsun.", "Sana gülüyorlar.", "Beceriksiz.", "Zamanın bitiyor!", "Nefes almayı unuttun."],
+            peak: ["HERKES FARKINDA.", "YETERSİZSİN.", "BIRAK ARTIK.", "BU YÜZDEN SEVİLMİYORSUN.", "KALBİN DURACAK.", "KAÇAMAZSIN."]
+        };
+        
+        // --- BAŞLANGIÇ VE ANA AKIŞ ---
+        introEl.addEventListener('click', startExperience);
+
+        function startExperience() {
+            if (state.active) return;
+            state.active = true;
+
+            introEl.style.opacity = '0';
+            setTimeout(() => introEl.style.display = 'none', 1000);
+
+            setTimeout(() => {
+                coreEl.style.opacity = '0.1'; // Kalp lekesi çok soluk başlar
+                root.style.setProperty('--pulse-duration', '6s');
+            }, 1000);
+
+            setTimeout(() => transitionToNextWord(), 3000);
+        }
+
+        // --- EVRE 1: YAZMA GÖREVİ ---
+
+        function transitionToNextWord(isRetry = false) {
+            typingChallengeEl.style.opacity = '0';
+            typingChallengeEl.style.transform = 'translate(-50%, -60%)'; // Yukarı kayarak kaybolur
+            
+            setTimeout(() => {
+                if (isRetry) {
+                     state.errorCount++;
+                     updateAnxietyEffects();
+                } else {
+                    state.wordIndex++;
+                }
+
+                if (state.wordIndex >= words.length) {
+                    startSpiralPhase(state.errorCount > 0);
+                    return;
+                }
+                
+                showTypingChallenge();
+                typingChallengeEl.style.opacity = '1';
+                typingChallengeEl.style.transform = 'translate(-50%, -50%)'; // Ortaya gelir
+            }, 600);
+        }
+
+        function showTypingChallenge() {
+            typingChallengeEl.style.display = 'flex';
+            typingInputEl.value = '';
+            typingInputEl.disabled = false;
+            typingInputEl.classList.remove('error');
+            
+            let wordToShow = words[state.wordIndex];
+            if (state.errorCount > 0) {
+                targetWordEl.style.color = '#a88';
+                wordToShow = corruptWord(wordToShow, state.errorCount);
+            } else {
+                targetWordEl.style.color = '#888';
+            }
+            targetWordEl.innerText = wordToShow;
+
+            state.currentTime = state.initialTime - (state.wordIndex * 400) - (state.errorCount * 200);
+            if (state.currentTime < 1200) state.currentTime = 1200;
+            
+            typingInputEl.focus();
+            startTimer();
+        }
+
+        function startTimer() {
+            const startTime = Date.now();
+            clearInterval(state.timerInterval);
+            timerBarEl.style.transition = 'none'; // Anlık sıfırlama için
+            timerBarEl.style.transform = 'scaleX(1)';
+
+            setTimeout(() => { // yumuşak başlangıç için
+                 timerBarEl.style.transition = `transform ${state.currentTime / 1000 * state.timeRate}s linear`;
+                 timerBarEl.style.transform = 'scaleX(0)';
+            }, 50);
+
+            state.timerInterval = setTimeout(() => {
+                handleIncorrectWord(true); // Süre bitti
+            }, state.currentTime / state.timeRate);
+        }
+        
+        typingInputEl.addEventListener('input', () => {
+            const currentWord = words[state.wordIndex];
+            const typedValue = typingInputEl.value.toLowerCase();
+
+            if (state.wordIndex === words.length - 1 && typedValue.length === currentWord.length - 1 && currentWord.startsWith(typedValue)) {
+                 setTimeout(() => {
+                    typingInputEl.value += "x";
+                    typingInputEl.disabled = true;
+                    handleIncorrectWord(false);
+                 }, 50);
+                 return;
+            }
+
+            if (typedValue === currentWord) {
+                clearInterval(state.timerInterval);
+                transitionToNextWord(false);
+            }
+        });
+
+        function handleIncorrectWord(isTimeout) {
+            clearInterval(state.timerInterval);
+            typingInputEl.disabled = true;
+            typingInputEl.classList.add('error');
+            if (isTimeout) timerBarEl.style.backgroundColor = '#a00';
+
+            transitionToNextWord(true);
+        }
+
+        function updateAnxietyEffects() {
+             // Kalp Atışı ve Leke Belirginliği
+            coreEl.style.opacity = Math.min(1, 0.1 + state.errorCount * 0.15);
+            root.style.setProperty('--pulse-duration', `${Math.max(0.8, 4 - state.errorCount * 0.5)}s`);
+            
+            // Zaman Akışı
+            state.timeRate = 1 + state.errorCount * 0.25;
+
+            // Fısıltılar
+            if (state.errorCount === 1) startWhispers(3500);
+            if (state.errorCount === 3) startWhispers(2000);
+            
+            // Çatlamalar
+            if (state.errorCount >= 2) addCrack();
+
+            // Vinyet
+            if (state.errorCount >= 3) root.style.setProperty('--vignette-size', '150px');
+
+            // Nefes Al Butonu
+            if (state.errorCount >= 2 && state.errorCount < 5) showMovingBreather();
+        }
+
+        // --- EVRE 2: SPİRAL ---
+        function startSpiralPhase(hadPreviousErrors) {
+            typingChallengeEl.style.display = 'none';
+            let initialWhisperRate = hadPreviousErrors ? 1500 : 3000;
+            
+            startWhispers(initialWhisperRate, 500, 30000);
+            
+            root.style.setProperty('--vignette-size', '300px');
+            root.style.setProperty('--screen-filter', 'grayscale(80%) contrast(120%)');
+
+            // Kalp atışını ve lekeyi zirveye hazırla
+            coreEl.style.opacity = '1';
+            setTimeout(() => root.style.setProperty('--pulse-duration', `2s`), 0);
+            setTimeout(() => root.style.setProperty('--pulse-duration', `1s`), 15000);
+            setTimeout(() => root.style.setProperty('--heartbeat-color', 'rgba(120, 40, 45, 0.6)'), 20000);
+            
+            // Nefes al butonu sürekli, daha agresif belirir
+            setInterval(showMovingBreather, 5000);
+
+            setTimeout(startPeakPhase, 35000); // Zirve için daha uzun bekleme
+        }
+
+        // --- EVRE 3: ZİRVE (ANKSİYETE ATAĞI) ---
+        function startPeakPhase() {
+            clearInterval(state.whisperInterval);
+            whispersContainerEl.innerHTML = ''; // Temizle
+            
+            staticOverlayEl.style.opacity = '1';
+            root.style.setProperty('--pulse-duration', '0.35s'); // Panik atak kalp hızı
+            
+            typingChallengeEl.style.display = 'flex';
+            typingInputEl.style.display = 'none'; // Artık yazılamaz
+            timerBarEl.style.display = 'none';
+
+            let peakWordIndex = 0;
+            state.peakChaosInterval = setInterval(() => {
+                const word = words[peakWordIndex % words.length];
+                targetWordEl.innerText = corruptWord(word, 5 + Math.random() * 5);
+                
+                const x = (Math.random() - 0.5) * 150;
+                const y = (Math.random() - 0.5) * 100;
+                typingChallengeEl.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) rotate(${(Math.random() - 0.5) * 15}deg)`;
+                
+                createWhisper('peak');
+                peakWordIndex++;
+            }, 1800); // Her soru için çok kısa süre
+
+            setTimeout(startResolutionPhase, 18000); // 18 saniye kaos
+        }
+        
+        // --- EVRE 4: ÇÖZÜLME VE SONRASI ---
+        function startResolutionPhase() {
+            clearInterval(state.peakChaosInterval);
+            
+            // Her şeyi aniden temizle
+            document.querySelectorAll('*').forEach(el => el.style.transition = 'opacity 0.5s');
+            whispersContainerEl.style.opacity = '0';
+            typingChallengeEl.style.opacity = '0';
+            coreEl.style.opacity = '0';
+            staticOverlayEl.style.opacity = '0';
+            breatherEl.style.opacity = '0';
+            cracksContainerEl.parentElement.style.opacity = '0';
+            
+            setTimeout(() => {
+                whispersContainerEl.innerHTML = '';
+                cracksContainerEl.innerHTML = '';
+                typingChallengeEl.style.display = 'none';
+
+                finalMessageEl.innerText = "Nefes aldın. Şimdilik bu yeterli.";
+                finalMessageEl.style.opacity = '1';
+            }, 500);
+
+            setTimeout(() => finalMessageEl.style.opacity = '0', 6500);
+            setTimeout(showCalmBreather, 8500);
+        }
+
+        function showCalmBreather() {
+            state.shakeLevel = 10;
+            breatherEl.style.top = `50%`;
+            breatherEl.style.left = `50%`;
+            breatherEl.style.transform = `translate(-50%, -50%) scale(1.2)`;
+            breatherEl.style.opacity = '1';
+            updateBreatherShake();
+        }
+        
+        breatherEl.addEventListener('click', () => {
+             if (state.shakeLevel > 0) {
+                 state.shakeLevel--;
+                 updateBreatherShake();
+                 if (state.shakeLevel === 0) {
+                     breatherEl.style.opacity = '0';
+                     setTimeout(endExperience, 1000);
+                 }
+             } else {
+                 showMovingBreather(true);
+             }
+        });
+        
+        function endExperience() {
+            body.style.backgroundColor = '#f0f0f0';
+            const eyeOpen = document.createElement('div');
+            eyeOpen.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, transparent 0%, #080808 10%); transition: background 3s ease-in; z-index: 999;`;
+            body.appendChild(eyeOpen);
+            setTimeout(() => eyeOpen.style.background = `radial-gradient(circle, transparent 100%, #080808 110%)`, 50);
+            setTimeout(() => eyeOpen.remove(), 3050);
+
+            setTimeout(() => {
+                root.style.setProperty('--pulse-duration', '12s');
+                root.style.setProperty('--heartbeat-color', 'rgba(60, 60, 65, 0.1)');
+                coreEl.style.opacity = '0.3'; // Leke kalır ama daha soluk
+                cracksContainerEl.parentElement.style.opacity = '1';
+            }, 2000);
+        }
+
+        // --- YARDIMCI FONKSİYONLAR ---
+        function corruptWord(word, level) {
+            let chars = word.split('');
+            const changes = Math.min(level, chars.length);
+            const charset = "!?#%&@$*";
+            for(let i = 0; i < changes; i++) {
+                const randIndex = Math.floor(Math.random() * chars.length);
+                if (Math.random() > 0.5 && chars[randIndex] != ' ') {
+                    chars[randIndex] = charset[Math.floor(Math.random() * charset.length)];
+                } else {
+                     chars[randIndex] = chars[randIndex].toUpperCase();
+                }
+            }
+            return chars.join('');
+        }
+
+        function createWhisper(tier = 'mild') {
+            const whisperEl = document.createElement('div');
+            whisperEl.classList.add('whisper');
+            
+            let source = whispers.mild;
+            if (state.errorCount > 2 || tier === 'harsh') source = whispers.harsh;
+            if (tier === 'peak') source = whispers.peak;
+
+            whisperEl.innerText = source[Math.floor(Math.random() * source.length)];
+            
+            const x = Math.random() * 80 + 10;
+            const y = Math.random() * 80 + 10;
+            whisperEl.style.left = `${x}vw`;
+            whisperEl.style.top = `${y}vh`;
+            whisperEl.style.transform = `scale(0.5) rotate(${(Math.random() - 0.5) * 20}deg)`;
+
+            whispersContainerEl.appendChild(whisperEl);
+
+            setTimeout(() => {
+                whisperEl.style.opacity = '1';
+                whisperEl.style.transform = `scale(1) rotate(0deg)`;
+            }, 100);
+
+            setTimeout(() => {
+                whisperEl.style.opacity = '0';
+                setTimeout(() => whisperEl.remove(), 1000);
+            }, 3000 + Math.random() * 2000);
+        }
+        
+        function startWhispers(rate) {
+             clearInterval(state.whisperInterval);
+             state.whisperInterval = setInterval(createWhisper, rate);
+        }
+        
+        function showMovingBreather(forceHide = false) {
+            if (forceHide) {
+                breatherEl.style.opacity = '0';
+                return;
+            }
+            breatherEl.className = 'breather'; // Reset classes
+            if (state.errorCount >= 5) breatherEl.classList.add('shaking-hard');
+            else if (state.errorCount >= 3) breatherEl.classList.add('shaking-medium');
+            else breatherEl.classList.add('shaking-light');
+
+            breatherEl.style.top = `${10 + Math.random() * 80}%`;
+            breatherEl.style.left = `${10 + Math.random() * 80}%`;
+            breatherEl.style.transform = `scale(${1 + state.errorCount * 0.1})`;
+            breatherEl.style.opacity = '1';
+            
+            setTimeout(() => {
+                if (state.shakeLevel === 0) breatherEl.style.opacity = '0';
+            }, 1500 + Math.random() * 1000);
+        }
+
+        function updateBreatherShake() {
+            const intensity = state.shakeLevel;
+            breatherEl.className = 'breather'; // Reset
+            if (intensity > 7) breatherEl.classList.add('shaking-hard');
+            else if (intensity > 4) breatherEl.classList.add('shaking-medium');
+            else if (intensity > 0) breatherEl.classList.add('shaking-light');
+        }
+
+        function addCrack() {
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            const side = Math.floor(Math.random() * 4);
+            let x1, y1, x2, y2;
+            if (side === 0) { x1 = 0; y1 = Math.random() * 100; } // left
+            else if (side === 1) { x1 = 100; y1 = Math.random() * 100; } // right
+            else if (side === 2) { x1 = Math.random() * 100; y1 = 0; } // top
+            else { x1 = Math.random() * 100; y1 = 100; } // bottom
+            x2 = 50 + (Math.random() - 0.5) * 40;
+            y2 = 50 + (Math.random() - 0.5) * 40;
+            const cx = (x1 + x2) / 2 + (Math.random() - 0.5) * 30;
+            const cy = (y1 + y2) / 2 + (Math.random() - 0.5) * 30;
+            
+            path.setAttribute('d', `M${x1},${y1} Q${cx},${cy} ${x2},${y2}`);
+            path.classList.add('crack');
+            cracksContainerEl.appendChild(path);
+        }
+    </script>
+</body>
+</html>
